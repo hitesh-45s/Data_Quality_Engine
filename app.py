@@ -1,4 +1,5 @@
 import streamlit as st
+import requests  # This is our delivery truck!
 
 # 1. Set up the page configuration
 st.set_page_config(page_title="Data Quality Engine", layout="wide")
@@ -50,8 +51,26 @@ if uploaded_file is not None:
 
     st.divider()
     
+    # --- NETWORK BRIDGE LOGIC ---
     if st.button("🚀 Run Cleaning Engine", type="primary"):
-        st.info("Pipeline configured! We will connect this UI to the Polars Data Engine in Week 3.")
+        with st.spinner("Transmitting data to the Kitchen (FastAPI)..."):
+            
+            # 1. Package the file for the delivery truck
+            files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")}
+            
+            try:
+                # 2. Send the truck to the FastAPI Loading Dock
+                response = requests.post("http://localhost:8000/upload", files=files)
+                
+                # 3. Check if the Kitchen responded with a 200 OK success code
+                if response.status_code == 200:
+                    api_reply = response.json()
+                    st.success(f"Backend Server Reply: {api_reply['message']}")
+                else:
+                    st.error("The API received the request but something went wrong.")
+            
+            except requests.exceptions.ConnectionError:
+                st.error("🚨 CRITICAL ERROR: Could not connect to FastAPI. Is your uvicorn server running?")
 
 else:
     st.info("Awaiting file upload... Please drop a CSV file to begin.")
