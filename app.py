@@ -2,44 +2,167 @@ import streamlit as st
 import requests
 import io
 import base64
+import time
 
 # 1. PAGE CONFIGURATION
 st.set_page_config(
     page_title="Data Audit Pro | Enterprise SaaS",
-    page_icon="✨",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. CUSTOM CSS FOR CORPORATE SAAS LOOK
+# 2. CUSTOM CSS
 st.markdown("""
     <style>
-        /* Hide Streamlit default headers and footers */
+        /* Hide Streamlit's default chrome */
         #MainMenu {visibility: hidden;}
         header {visibility: hidden;}
         footer {visibility: hidden;}
-        
-        /* Typography */
+
+        :root {
+            --ink: #0F172A;
+            --slate: #5B6478;
+            --line: #E1E4EC;
+            --ledger: #1B3A6B;
+            --ledger-dark: #142C52;
+            --teal: #0EA37A;
+            --teal-dark: #0B8A67;
+            --surface: #FFFFFF;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---------- Hero band (login + landing) ---------- */
+        .hero-band {
+            position: relative;
+            overflow: hidden;
+            background: var(--surface);
+            background-image:
+                linear-gradient(var(--line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 28px 28px;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 52px 32px 44px;
+            margin-bottom: 2rem;
+        }
+        .hero-band::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 25%, var(--surface) 88%);
+            pointer-events: none;
+        }
+        .hero-eyebrow-wrap { text-align: center; position: relative; z-index: 1; }
+        .hero-eyebrow {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.72rem;
+            letter-spacing: .08em; text-transform: uppercase;
+            color: var(--teal-dark); background: rgba(14, 163, 122, 0.10);
+            border: 1px solid rgba(14, 163, 122, 0.28);
+            padding: 6px 14px; border-radius: 999px; margin-bottom: 18px;
+        }
         .hero-title {
-            font-size: 3rem;
-            font-weight: 800;
-            color: #1E3A8A; 
-            text-align: center;
-            margin-bottom: 0px;
+            font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+            font-size: 2.6rem; letter-spacing: -0.02em; line-height: 1.12;
+            color: var(--ink); text-align: center; margin: 0;
+            position: relative; z-index: 1;
+            animation: fadeInUp .5s ease both;
         }
         .hero-subtitle {
-            font-size: 1.2rem;
-            color: #64748B;
-            text-align: center;
-            margin-bottom: 2rem;
-            font-weight: 400;
+            font-family: 'Inter', sans-serif; font-size: 1.08rem; font-weight: 400;
+            color: var(--slate); text-align: center; margin: 14px auto 0; max-width: 560px;
+            position: relative; z-index: 1;
+            animation: fadeInUp .5s ease .08s both;
         }
+        .hero-divider {
+            width: 52px; height: 3px; background: var(--teal);
+            margin: 22px auto 0; border-radius: 2px; position: relative; z-index: 1;
+        }
+
+        /* Compact left-aligned variant for working screens (core app) */
+        .page-title {
+            font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+            font-size: 2rem; letter-spacing: -0.01em; color: var(--ink);
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .section-header {
+            font-family: 'Space Grotesk', sans-serif; font-weight: 600;
+            font-size: 1.25rem; color: var(--ink);
+            margin-bottom: 0.75rem;
+        }
+
+        /* ---------- Feature cards ---------- */
         .feature-box {
-            padding: 20px;
-            border-radius: 10px;
-            background-color: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            height: 100%;
+            padding: 26px 24px; border-radius: 16px; background: var(--surface);
+            border: 1px solid var(--line); height: 100%;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .feature-box:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.09);
+            border-color: var(--ledger);
+        }
+        .feature-icon-badge {
+            width: 42px; height: 42px; border-radius: 11px;
+            background: linear-gradient(135deg, var(--ledger), var(--teal));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; margin-bottom: 14px;
+        }
+        .feature-box h4 {
+            font-family: 'Space Grotesk', sans-serif; font-weight: 600;
+            font-size: 1.05rem; color: var(--ink); margin: 0 0 8px 0;
+        }
+        .feature-box p {
+            font-family: 'Inter', sans-serif; font-size: 0.92rem; color: var(--slate);
+            line-height: 1.6; margin: 0;
+        }
+
+        /* ---------- Targeted widget accents ---------- */
+        /* Metrics read like ledger figures, not UI copy */
+        [data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace; }
+        [data-testid="stMetricLabel"] {
+            font-family: 'Inter', sans-serif; text-transform: uppercase;
+            letter-spacing: .04em; font-size: 0.72rem;
+        }
+        
+        /* Dashboard App Bar */
+        .app-bar {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .app-bar-title {
+            font-family: 'Space Grotesk', sans-serif; 
+            font-weight: 700; 
+            font-size: 1.4rem; 
+            color: var(--ink);
+            text-align: center;
+        }
+
+        /* Download buttons get the "verified" teal */
+        [data-testid="stDownloadButton"] button {
+            background: var(--teal) !important; border-color: var(--teal) !important; color: #fff !important;
+        }
+        [data-testid="stDownloadButton"] button:hover {
+            background: var(--teal-dark) !important; border-color: var(--teal-dark) !important;
+        }
+        /* Visible keyboard focus (accessibility) */
+        button:focus-visible, [role="tab"]:focus-visible, input:focus-visible {
+            outline: 2px solid var(--ledger) !important; outline-offset: 2px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -51,6 +174,12 @@ if 'user_role' not in st.session_state:
     st.session_state.user_role = None # Can be 'user' or 'guest'
 if 'cleaning_results' not in st.session_state:
     st.session_state.cleaning_results = None # Holds data so downloads don't disappear
+    
+# Phase 1 Local Mock Database for User Authentication
+if 'users_db' not in st.session_state:
+    st.session_state.users_db = {
+        "admin@company.com": "password123"
+    }
 
 # Navigation Helper
 def change_page(new_page, role=None):
@@ -65,37 +194,56 @@ def change_page(new_page, role=None):
 # PAGE 1: THE AUTHENTICATION PORTAL
 # ==========================================
 def render_login_page():
-    st.markdown('<div class="hero-title">Data Audit Pro</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-subtitle">Sign in to access the Enterprise Data Quality Engine.</div>', unsafe_allow_html=True)
-    
+    st.markdown("""
+        <div class="hero-band">
+            <div class="hero-eyebrow-wrap"><span class="hero-eyebrow">🛡️ Data Quality &amp; Compliance</span></div>
+            <div class="hero-title">Data Audit Pro</div>
+            <div class="hero-subtitle">Sign in to access the Enterprise Data Quality Engine.</div>
+            <div class="hero-divider"></div>
+        </div>
+    """, unsafe_allow_html=True)
+
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        tab1, tab2, tab3 = st.tabs(["🔒 Sign In", "📝 Create Account", "👤 Continue as Guest"])
-        
-        with tab1:
-            st.text_input("Work Email", placeholder="name@company.com")
-            st.text_input("Password", type="password")
-            # For Phase 1, we let any input pass to simulate authentication
-            if st.button("Log In", use_container_width=True, type="primary"):
-                change_page("landing", role="user")
-                st.rerun()
+        with st.container(border=True):
+            tab1, tab2, tab3 = st.tabs(["🔒 Sign In", "📝 Create Account", "👤 Continue as Guest"])
+
+            with tab1:
+                login_email = st.text_input("Work Email", placeholder="name@company.com", key="login_email")
+                login_pass = st.text_input("Password", type="password", key="login_pass")
                 
-        with tab2:
-            st.text_input("Full Name")
-            st.text_input("Corporate Email")
-            st.text_input("Choose Password", type="password")
-            if st.button("Create Account", use_container_width=True):
-                st.success("Account created! Logging you in...")
-                import time
-                time.sleep(1)
-                change_page("landing", role="user")
-                st.rerun()
+                if st.button("Log In", use_container_width=True, type="primary"):
+                    if not login_email or not login_pass:
+                        st.error("⚠️ Please enter both your email and password.")
+                    elif login_email in st.session_state.users_db and st.session_state.users_db[login_email] == login_pass:
+                        change_page("landing", role="user")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Invalid email or password. Please try again.")
+
+            with tab2:
+                reg_name = st.text_input("Full Name", key="reg_name")
+                reg_email = st.text_input("Corporate Email", key="reg_email")
+                reg_pass = st.text_input("Choose Password", type="password", key="reg_pass")
                 
-        with tab3:
-            st.info("Guests can view the platform features, but data processing is disabled.")
-            if st.button("Enter as Guest", use_container_width=True):
-                change_page("landing", role="guest")
-                st.rerun()
+                if st.button("Create Account", use_container_width=True):
+                    if not reg_name or not reg_email or not reg_pass:
+                        st.error("⚠️ Please fill out all required fields.")
+                    elif reg_email in st.session_state.users_db:
+                        st.error("⚠️ An account with this email already exists!")
+                    else:
+                        # Save the new user into our session state "database"
+                        st.session_state.users_db[reg_email] = reg_pass
+                        st.success("✅ Account created successfully! Logging you in...")
+                        time.sleep(1.5)
+                        change_page("landing", role="user")
+                        st.rerun()
+
+            with tab3:
+                st.info("Guests can view the platform features, but data processing is disabled.")
+                if st.button("Enter as Guest", use_container_width=True):
+                    change_page("landing", role="guest")
+                    st.rerun()
 
 # ==========================================
 # PAGE 2: THE LANDING & INFORMATION PAGE
@@ -108,36 +256,45 @@ def render_landing_page():
             change_page("login")
             st.rerun()
 
-    st.markdown('<div class="hero-title">Welcome to the Engine</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-subtitle">The fastest way to scrub, sanitize, and audit your corporate data.</div>', unsafe_allow_html=True)
-    
+    st.markdown("""
+        <div class="hero-band">
+            <div class="hero-eyebrow-wrap"><span class="hero-eyebrow">🛡️ Data Quality &amp; Compliance</span></div>
+            <div class="hero-title">Welcome to the Engine</div>
+            <div class="hero-subtitle">The fastest way to scrub, sanitize, and audit your corporate data.</div>
+            <div class="hero-divider"></div>
+        </div>
+    """, unsafe_allow_html=True)
+
     # Feature Showcase
     st.markdown("### 🚀 Platform Features")
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown("""
         <div class="feature-box">
-            <h4>🧹 Automated Scrubbing</h4>
+            <div class="feature-icon-badge">🧹</div>
+            <h4>Automated Scrubbing</h4>
             <p>Instantly strip hidden whitespaces, standardize date formats (ISO 8601), and deduplicate records with zero coding.</p>
         </div>
         """, unsafe_allow_html=True)
     with c2:
         st.markdown("""
         <div class="feature-box">
-            <h4>📈 Outlier Filtering</h4>
+            <div class="feature-icon-badge">📈</div>
+            <h4>Outlier Filtering</h4>
             <p>Utilize mathematical Z-Score and Interquartile Range (IQR) detection to automatically hunt down impossible anomalies.</p>
         </div>
         """, unsafe_allow_html=True)
     with c3:
         st.markdown("""
         <div class="feature-box">
-            <h4>📑 Compliance Audits</h4>
+            <div class="feature-icon-badge">📑</div>
+            <h4>Compliance Audits</h4>
             <p>Every transformation is logged. Instantly generate professional PDF audit reports for management and stakeholders.</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
     st.markdown("---")
-    
+
     # The Gatekeeper Logic
     c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 1])
     with c_btn2:
@@ -155,65 +312,70 @@ def render_landing_page():
 # PAGE 3: THE CORE APPLICATION (Kitchen)
 # ==========================================
 def render_core_app():
-    # Navigation
-    nav1, nav2 = st.columns([4, 1])
+    # 1. Custom Top App Bar
+    st.markdown("<div class='app-bar'>", unsafe_allow_html=True)
+    nav1, nav2, nav3 = st.columns([1, 6, 1])
     with nav1:
-        if st.button("← Back to Home"):
+        if st.button("← Home", use_container_width=True):
             st.session_state.cleaning_results = None # Clear memory on exit
             change_page("landing")
             st.rerun()
     with nav2:
-        if st.button("Logout", use_container_width=True):
+        st.markdown("<div class='app-bar-title'>Data Quality Dashboard</div>", unsafe_allow_html=True)
+    with nav3:
+        if st.button("Logout 🚪", use_container_width=True):
             change_page("login")
             st.rerun()
-            
-    st.markdown('<div class="hero-title" style="font-size: 2.2rem;">Data Cleaning Pipeline</div>', unsafe_allow_html=True)
-    st.write("")
-    
+    st.markdown("</div>", unsafe_allow_html=True)
+
     # MAIN LAYOUT ARCHITECTURE
-    col_left, col_right = st.columns([1.2, 1], gap="large")
+    col_left, col_right = st.columns([1, 1.3], gap="large")
 
     with col_left:
-        st.markdown("### 📄 1. Upload Dataset")
-        st.info("Supported formats: .CSV, .XLSX (Max size: 200MB)")
-        uploaded_file = st.file_uploader("Drop your messy data here", type=["csv", "xlsx"], label_visibility="collapsed")
+        st.markdown("<div class='section-header'>📄 1. Data Ingestion</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("<p style='font-size:0.9rem; color: var(--slate);'>Upload your raw dataset securely. Supported formats include .CSV and .XLSX (Max size: 200MB).</p>", unsafe_allow_html=True)
+            uploaded_file = st.file_uploader("Drop your messy data here", type=["csv", "xlsx"], label_visibility="collapsed")
+            if uploaded_file:
+                st.success(f"System Ready: {uploaded_file.name}", icon="✅")
 
     with col_right:
-        st.markdown("### ⚙️ 2. Pipeline Configurations")
-        tab1, tab2, tab3 = st.tabs(["🧹 Cleaning Rules", "📈 Outliers", "💾 Export"])
-        
-        with tab1:
-            remove_duplicates = st.toggle("Remove Exact Duplicates", value=True)
-            type_casting = st.toggle("Strip Hidden Whitespace (Text)", value=True)
-            standardize_dates = st.toggle("Standardize Date Formats", value=True)
-            
-            st.markdown("---")
-            st.markdown("**Handling Missing Data**")
-            null_action = st.selectbox("Text Data Action", ["Do Nothing", "Drop Rows with Missing Values", "Fill Missing Values with Text"])
-            fill_value = "Unknown"
-            if null_action == "Fill Missing Values with Text":
-                fill_value = st.text_input("Imputation Text", value="Unknown")
-                
-            numeric_null_action = st.selectbox("Numeric Data Action", ["Do Nothing", "Fill with Zero", "Fill with Mean", "Fill with Median"])
+        st.markdown("<div class='section-header'>⚙️ 2. Pipeline Configurations</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            tab1, tab2, tab3 = st.tabs(["🧹 Cleaning Rules", "📈 Outliers", "💾 Export"])
 
-        with tab2:
-            outlier_detection = st.toggle("Enable Outlier Filtering", value=False)
-            outlier_method = "Z-Score"
-            if outlier_detection:
-                outlier_method = st.selectbox("Detection Methodology", ["Z-Score", "IQR (Interquartile Range)"])
-                st.caption("Z-Score removes data 3 standard deviations from the mean.")
+            with tab1:
+                remove_duplicates = st.toggle("Remove Exact Duplicates", value=True)
+                type_casting = st.toggle("Strip Hidden Whitespace (Text)", value=True)
+                standardize_dates = st.toggle("Standardize Date Formats", value=True)
 
-        with tab3:
-            output_format = st.radio("Final Output Format", ["CSV", "Excel"], horizontal=True)
+                st.markdown("---")
+                st.markdown("**Handling Missing Data**")
+                null_action = st.selectbox("Text Data Action", ["Do Nothing", "Drop Rows with Missing Values", "Fill Missing Values with Text"])
+                fill_value = "Unknown"
+                if null_action == "Fill Missing Values with Text":
+                    fill_value = st.text_input("Imputation Text", value="Unknown")
 
-    # SUBMISSION BUTTON
-    st.markdown("---")
-    col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
+                numeric_null_action = st.selectbox("Numeric Data Action", ["Do Nothing", "Fill with Zero", "Fill with Mean", "Fill with Median"])
 
-    with col_button2:
+            with tab2:
+                outlier_detection = st.toggle("Enable Outlier Filtering", value=False)
+                outlier_method = "Z-Score"
+                if outlier_detection:
+                    outlier_method = st.selectbox("Detection Methodology", ["Z-Score", "IQR (Interquartile Range)"])
+                    st.caption("Z-Score removes data 3 standard deviations from the mean.")
+
+            with tab3:
+                output_format = st.radio("Final Output Format", ["CSV", "Excel"], horizontal=True)
+
+    # SUBMISSION BUTTON (Centered Action Zone)
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_space1, col_button, col_space2 = st.columns([1.5, 2, 1.5])
+
+    with col_button:
         if st.button("🚀 Initialize Cleaning Pipeline", use_container_width=True, type="primary"):
             if uploaded_file is None:
-                st.error("⚠️ Please upload a dataset first!")
+                st.error("⚠️ Please upload a dataset to begin processing.")
             else:
                 with st.spinner("Analyzing and scrubbing data in the cloud..."):
                     try:
@@ -227,9 +389,9 @@ def render_core_app():
                             "standardize_dates": standardize_dates, "type_casting": type_casting,
                             "outlier_detection": outlier_detection, "outlier_method": outlier_method
                         }
-                        
+
                         response = requests.post(API_URL, files=files, data=data)
-                        
+
                         if response.status_code == 200:
                             result = response.json()
                             if result["status"] == "Success":
@@ -252,38 +414,42 @@ def render_core_app():
     # THE DOWNLOAD FIX: Render results from Memory Bank (Survives Reruns!)
     if st.session_state.cleaning_results is not None:
         res = st.session_state.cleaning_results
-        st.success("✅ Cleaned successfully! Check the Audit PDF for details.")
         
-        st.markdown("### 📊 Pipeline Results")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Final Row Count", res["metrics"]["total_rows"])
-        m2.metric("Final Column Count", res["metrics"]["total_columns"])
-        m3.metric("System Status", "Pass", delta="Optimized", delta_color="normal")
-        
-        st.markdown("---")
-        st.markdown("### 📥 Download Assets")
-        
-        dl_col1, dl_col2 = st.columns(2)
-        file_bytes = base64.b64decode(res["file_data"])
-        pdf_bytes = base64.b64decode(res["pdf_data"])
-        
-        with dl_col1:
-            st.download_button(
-                label=f"💾 Download Cleaned Data ({res['ext'].upper()})",
-                data=file_bytes,
-                file_name=f"cleaned_{res['name']}{res['ext']}",
-                mime=res["mime"],
-                use_container_width=True
-            )
+        st.markdown("<hr style='margin: 3rem 0; border-color: var(--line);'>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'>📊 Audit & Transformation Results</div>", unsafe_allow_html=True)
+
+        with st.container(border=True):
+            st.success("✅ Dataset successfully cleaned and standardized. Audit report generated.")
             
-        with dl_col2:
-            st.download_button(
-                label="📄 Download Audit Report (PDF)",
-                data=pdf_bytes,
-                file_name=f"Audit_Report_{res['name']}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Final Row Count", res["metrics"]["total_rows"], delta="Processed", delta_color="normal")
+            m2.metric("Final Column Count", res["metrics"]["total_columns"], delta="Standardized", delta_color="normal")
+            m3.metric("System Status", "Pass", delta="Ready for Export", delta_color="normal")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("##### 📥 Download Assets")
+
+            dl_col1, dl_col2 = st.columns(2)
+            file_bytes = base64.b64decode(res["file_data"])
+            pdf_bytes = base64.b64decode(res["pdf_data"])
+
+            with dl_col1:
+                st.download_button(
+                    label=f"💾 Download Cleaned Data ({res['ext'].upper()})",
+                    data=file_bytes,
+                    file_name=f"cleaned_{res['name']}{res['ext']}",
+                    mime=res["mime"],
+                    use_container_width=True
+                )
+
+            with dl_col2:
+                st.download_button(
+                    label="📄 Download Audit Report (PDF)",
+                    data=pdf_bytes,
+                    file_name=f"Audit_Report_{res['name']}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
 # ==========================================
 # ROUTER: Controls which page to show
