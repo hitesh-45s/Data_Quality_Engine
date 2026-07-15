@@ -3,6 +3,8 @@ import requests
 import io
 import base64
 import time
+import json
+import os
 
 # 1. PAGE CONFIGURATION
 st.set_page_config(
@@ -97,7 +99,7 @@ st.markdown("""
         
         .section-header {
             font-family: 'Space Grotesk', sans-serif; font-weight: 600;
-            font-size: 1.25rem; color: var(--ink);
+            font-size: 1.25rem; color: var(--ledger);
             margin-bottom: 0.75rem;
         }
 
@@ -149,7 +151,7 @@ st.markdown("""
             font-family: 'Space Grotesk', sans-serif; 
             font-weight: 700; 
             font-size: 1.4rem; 
-            color: var(--ink);
+            color: var(--ledger);
             text-align: center;
         }
 
@@ -174,12 +176,26 @@ if 'user_role' not in st.session_state:
     st.session_state.user_role = None # Can be 'user' or 'guest'
 if 'cleaning_results' not in st.session_state:
     st.session_state.cleaning_results = None # Holds data so downloads don't disappear
-    
-# Phase 1 Local Mock Database for User Authentication
-if 'users_db' not in st.session_state:
-    st.session_state.users_db = {
-        "admin@company.com": "password123"
-    }
+
+# 4. JSON FILE DATABASE HANDLERS (Permanent Local Storage)
+DB_FILE = "users_db.json"
+
+def load_users():
+    """Reads users from the physical JSON file."""
+    if not os.path.exists(DB_FILE):
+        default_users = {"admin@company.com": "password123"}
+        with open(DB_FILE, "w") as f:
+            json.dump(default_users, f)
+        return default_users
+    with open(DB_FILE, "r") as f:
+        return json.load(f)
+
+def save_user(email, password):
+    """Saves a new user permanently to the JSON file."""
+    users = load_users()
+    users[email] = password
+    with open(DB_FILE, "w") as f:
+        json.dump(users, f)
 
 # Navigation Helper
 def change_page(new_page, role=None):
@@ -209,31 +225,34 @@ def render_login_page():
             tab1, tab2, tab3 = st.tabs(["🔒 Sign In", "📝 Create Account", "👤 Continue as Guest"])
 
             with tab1:
-                login_email = st.text_input("Work Email", placeholder="name@company.com", key="login_email")
+                # Use .strip() to automatically remove accidental blank spaces!
+                login_email = st.text_input("Work Email", placeholder="name@company.com", key="login_email").strip()
                 login_pass = st.text_input("Password", type="password", key="login_pass")
                 
                 if st.button("Log In", use_container_width=True, type="primary"):
+                    users_db = load_users() # Load from physical file!
                     if not login_email or not login_pass:
                         st.error("⚠️ Please enter both your email and password.")
-                    elif login_email in st.session_state.users_db and st.session_state.users_db[login_email] == login_pass:
+                    elif login_email in users_db and users_db[login_email] == login_pass:
                         change_page("landing", role="user")
                         st.rerun()
                     else:
                         st.error("⚠️ Invalid email or password. Please try again.")
 
             with tab2:
-                reg_name = st.text_input("Full Name", key="reg_name")
-                reg_email = st.text_input("Corporate Email", key="reg_email")
+                reg_name = st.text_input("Full Name", key="reg_name").strip()
+                reg_email = st.text_input("Corporate Email", key="reg_email").strip()
                 reg_pass = st.text_input("Choose Password", type="password", key="reg_pass")
                 
                 if st.button("Create Account", use_container_width=True):
+                    users_db = load_users() # Load from physical file!
                     if not reg_name or not reg_email or not reg_pass:
                         st.error("⚠️ Please fill out all required fields.")
-                    elif reg_email in st.session_state.users_db:
+                    elif reg_email in users_db:
                         st.error("⚠️ An account with this email already exists!")
                     else:
-                        # Save the new user into our session state "database"
-                        st.session_state.users_db[reg_email] = reg_pass
+                        # Save the new user permanently to the hard drive!
+                        save_user(reg_email, reg_pass)
                         st.success("✅ Account created successfully! Logging you in...")
                         time.sleep(1.5)
                         change_page("landing", role="user")
