@@ -399,7 +399,7 @@ def render_core_app():
                 with st.spinner("Analyzing and scrubbing data in the cloud..."):
                     try:
                         # THE BRIDGE
-                        API_URL = "http://localhost:8000/upload"
+                        API_URL = "https://data-quality-api-kitchen.onrender.com/upload"
                         files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         data = {
                             "remove_duplicates": remove_duplicates,
