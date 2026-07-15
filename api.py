@@ -200,7 +200,13 @@ async def upload_file(
         pdf.set_font("Courier", size=9)
         pdf.multi_cell(0, 5, final_report_text) # This automatically wraps and fits everything!
             
-        pdf_bytes = bytes(pdf.output())
+        # BUG FIX: Safely encode the PDF to bytes regardless of the library version
+        pdf_out = pdf.output(dest='S')
+        if isinstance(pdf_out, str):
+            pdf_bytes = pdf_out.encode('latin-1')
+        else:
+            pdf_bytes = bytes(pdf_out)
+            
         base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
         # --- GENERATE THE DATA FILE ---
