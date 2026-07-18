@@ -5,6 +5,7 @@ import base64
 import time
 import json
 import os
+import re
 
 # 1. PAGE CONFIGURATION
 st.set_page_config(
@@ -246,8 +247,13 @@ def render_login_page():
                 
                 if st.button("Create Account", use_container_width=True):
                     users_db = load_users() # Load from physical file!
+                    
                     if not reg_name or not reg_email or not reg_pass:
                         st.error("⚠️ Please fill out all required fields.")
+                    # --- NEW REGEX EMAIL VALIDATION (USING ELIF) ---
+                    elif not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", reg_email):
+                        st.error("⚠️ Invalid email format. Please enter a proper email (e.g., name@company.com).")
+                    # -----------------------------------------------
                     elif reg_email in users_db:
                         st.error("⚠️ An account with this email already exists!")
                     else:
